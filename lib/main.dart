@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:timer_stopwatch/styles/text_styles.dart';
+import 'package:timer_stopwatch/timerData.dart';
 import 'package:vibration/vibration.dart';
 
 void main() => runApp(MyApp());
@@ -10,41 +12,36 @@ void main() => runApp(MyApp());
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text("Timer/StopWatch"),
+    return ChangeNotifierProvider<TimerData>(
+      create: (_) => TimerData(),
+      child: MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            title: Text("Timer/StopWatch"),
+          ),
+          body: TimerWidget(),
         ),
-        body: TimerWidget(),
       ),
     );
   }
 }
 
-class TimerWidget extends StatefulWidget {
-  @override
-  _TimerWidgetState createState() => _TimerWidgetState();
-}
-
-class _TimerWidgetState extends State<TimerWidget> {
-  DateTime curTimerValue = DateTime(2019);
-  bool set = true;
-  Timer mTimer = Timer(Duration(seconds: 1), () {});
+class TimerWidget extends StatelessWidget{
+  Timer mTimer;
+  TimerData timerData;
+  DateTime get timerVal => timerData.curTimerValue;
+  bool get isTimerWork => timerData.isTimerWork;
+  timerSet(DateTime newTime) => timerData.setTimer(newTime);
+  setIsWork(bool newValue) => timerData.setTimerWork(newValue);
 
   _startTimer() {
-    setState(() {
-      set = false;
-    });
+    setIsWork(true);
     mTimer = Timer.periodic(Duration(seconds: 1), (_timer) {
-      setState(() {
-        curTimerValue = curTimerValue.subtract(Duration(seconds: 1));
-      });
-      if (curTimerValue.compareTo(DateTime(2019)) == 0) {
+      timerSet(timerVal.subtract(Duration(seconds: 1)));
+      if (timerVal.compareTo(DateTime(2019)) == 0) {
         _timer.cancel();
         Vibration.vibrate(duration: 1000);
-        setState(() {
-          set = true;
-        });
+        setIsWork(false);
         print("timer is finished");
       }
     });
@@ -52,22 +49,22 @@ class _TimerWidgetState extends State<TimerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    timerData = Provider.of<TimerData>(context);
+    if(mTimer == null) mTimer = Timer(Duration(seconds: 1), () {});
     return InkWell(
       onLongPress: () {
-        setState(() {
-          if (mTimer.isActive) {
-            mTimer.cancel();
-            set = true;
-          }
-          curTimerValue = DateTime(2019);
-        });
-      },
-      onTap: () => setState(() {
         if (mTimer.isActive) {
           mTimer.cancel();
-          set = true;
+          setIsWork(false);
+        }
+        timerSet(DateTime(2019));
+      },
+      onTap: () {
+        if (mTimer.isActive) {
+          mTimer.cancel();
+          timerData.setTimerWork(false);
         } else {
-          if (curTimerValue != DateTime(2019)) {
+          if (timerVal != DateTime(2019)) {
             _startTimer();
           } else {
             Scaffold.of(context).showSnackBar(SnackBar(
@@ -76,7 +73,7 @@ class _TimerWidgetState extends State<TimerWidget> {
             ));
           }
         }
-      }),
+      },
       child: Row(
         children: <Widget>[
           _timeSett(Duration(hours: 1), "HH : "),
@@ -92,23 +89,20 @@ class _TimerWidgetState extends State<TimerWidget> {
   Widget _timeSett(Duration duration, String format) {
     return Column(children: <Widget>[
       Offstage(
-        offstage: !set,
+        offstage: isTimerWork,
         child: IconButton(
             icon: Icon(Icons.add),
-            onPressed: () =>
-                setState(() => curTimerValue = curTimerValue.add(duration))),
+            onPressed: () => timerSet(timerVal.add(duration))),
       ),
       Text(
-        DateFormat(format).format(curTimerValue),
+        DateFormat(format).format(timerVal),
         style: mTextStyles.mFont1,
       ),
       Offstage(
-        offstage: !set,
+        offstage: isTimerWork,
         child: IconButton(
-          icon: Icon(Icons.remove),
-          onPressed: () =>
-              setState(() => curTimerValue = curTimerValue.subtract(duration)),
-        ),
+            icon: Icon(Icons.remove),
+            onPressed: () => timerSet(timerVal.subtract(duration))),
       )
     ]);
   }
